@@ -7,15 +7,15 @@ from torch.utils.data import Dataset
 import os
 import glob
 import scipy.io as sio
+from disk import getCache
 
-
-cache = FanoutCache('tmp')
+cache = getCache('ProjectCache')
 
 
 transform = Compose([ToPILImage(),Resize((227,227)), ToTensor()]) 
 
 
-@cache.memoize(typed=True, tag='stride')
+# @cache.memoize(typed=True, tag='stride')
 def generate_stride_set(video_array, stride_size = 1, window_length = 10, name = ''):
 
     if name:
@@ -23,7 +23,7 @@ def generate_stride_set(video_array, stride_size = 1, window_length = 10, name =
 
     end = video_array.shape[-1] - window_length
     windows = []
-    for i in tqdm.tqdm(range(0, end, stride_size)):
+    for i in range(0, end, stride_size):
         x = video_array[..., i:i+window_length]
         transformed_x = []
         for j in range(x.shape[-1]):
@@ -37,7 +37,7 @@ def generate_stride_set(video_array, stride_size = 1, window_length = 10, name =
     windows = torch.cat(windows)
     return windows
     
-@cache.memoize(typed=True, tag='loading')
+# @cache.memoize(typed=True, tag='loading')
 def load_data_from_file(filename):
 
     videodata = sio.loadmat(str(filename))  
@@ -50,7 +50,7 @@ class FileDataset(Dataset):
         
         path_to_use = train_path if train else test_path
 
-        self.filenames = glob.glob(path_to_use + '/*')
+        self.filenames = glob.glob(str(path_to_use) + '/*')
 
     def __len__(self):
         return len(self.filenames)
@@ -64,6 +64,7 @@ class FileDataset(Dataset):
 
         data_set = torch.unsqueeze(torch.cat([stride_1_set, stride_2_set, stride_3_set]),1)
         data_set = data_set[torch.randperm(data_set.size()[0])]
+    
 
         return data_set
     
