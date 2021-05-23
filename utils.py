@@ -4,6 +4,10 @@ import torch
 import tqdm
 from diskcache import FanoutCache
 from torch.utils.data import Dataset
+import os
+import glob
+import scipy.io as sio
+
 
 cache = FanoutCache('tmp')
 
@@ -32,6 +36,36 @@ def generate_stride_set(video_array, stride_size = 1, window_length = 10, name =
     
     windows = torch.cat(windows)
     return windows
+    
+@cache.memoize(typed=True, tag='loading')
+def load_data_from_file(filename):
+
+    videodata = sio.loadmat(str(filename))  
+    videodata = videodata['vol']
+    return videodata
+
+class FileDataset(Dataset):
+
+    def __init__(self, train_path, test_path, train = True):
+        
+        path_to_use = train_path if train else test_path
+
+        self.filenames = glob.glob(path_to_use + '/*')
+
+    def __len__(self):
+        return len(self.filenames)
+
+    def __getitem__(self, ndx):
+
+        video_matrix = load_data_from_file(self.filenames[ndx])
+        stride_1_set = generate_stride_set(video_matrix, stride_size=1, name=self.filenames[ndx])
+        stride_2_set = generate_stride_set(video_matrix, stride_size=2, name=self.filenames[ndx])
+        stride_3_set = generate_stride_set(video_matrix, stride_size=3, name=self.filenames[ndx])
+
+        data_set = torch.unsqueeze(torch.cat([stride_1_set, stride_2_set, stride_3_set]),1)
+        data_set = data_set[torch.randperm(data_set.size()[0])]
+
+        return data_set
     
 
 class AnomalyDataset(Dataset):
